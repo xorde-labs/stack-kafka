@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  ### KAFKA CLUSTER ###
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    restart: unless-stopped
+    depends_on:
+      - zookeeper0
+      - kafka0
+      - kafka1
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka0:93,kafka1:93
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:${KAFKA_ZOOKEEPER_PORT}
+      KAFKA_CLUSTERS_0_JMXPORT: 9997
+      AUTH_TYPE: LOGIN_FORM
+      SPRING_SECURITY_USER_NAME: ${KAFKA_ADMIN_USER}
+      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_ADMIN_PASSWORD}
+      SERVER_SERVLET_CONTEXT_PATH: /kafka
+      SERVER_PORT: 80
+    ports:
+      - ${KAFKA_ADMIN_PORT}:80/tcp
+
+  zookeeper0:
+    image: confluentinc/cp-zookeeper:latest
+    restart: unless-stopped
+    environment:
+      ZOOKEEPER_CLIENT_PORT: ${KAFKA_ZOOKEEPER_PORT}
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka0:
+    image: confluentinc/cp-kafka:latest
+    restart: unless-stopped
+    depends_on:
+      - zookeeper0
+    volumes:
+      - ${PWD}/certs/build:/etc/kafka/vol/certs
+      - ${PWD}/jaas/build:/etc/kafka/vol/jaas
+    env_file:
+      - ${PWD}/certs/build/passwords.env
+    environment:
+      KAFKA_BROKER_ID: 0
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper0:${KAFKA_ZOOKEEPER_PORT}
+      KAFKA_ADVERTISED_LISTENERS: local_net://kafka0:93,external_net://${KAFKA_BROKER_HOSTNAME}:${KAFKA_0_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: local_net:PLAINTEXT,external_net:SASL_SSL
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_INTER_BROKER_LISTENER_NAME: local_net
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/vol/certs/cert.keystore
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "HTTPS"
+      JMX_PORT: 9997
+      KAFKA_JMX_OPTS: >-
+        -Dcom.sun.management.jmxremote 
+        -Dcom.sun.management.jmxremote.authenticate=false 
+        -Dcom.sun.management.jmxremote.ssl=false 
+        -Djava.rmi.server.hostname=kafka0
+        -Dcom.sun.management.jmxremote.rmi.port=9997
+        -Djava.security.auth.login.config=/etc/kafka/vol/jaas/sasl_jaas.conf
+    ports:
+      - ${KAFKA_0_PORT}:${KAFKA_0_PORT}/tcp
+
+  kafka1:
+    image: confluentinc/cp-kafka:latest
+    restart: unless-stopped
+    depends_on:
+      - zookeeper0
+    volumes:
+      - ${PWD}/certs/build:/etc/kafka/vol/certs
+      - ${PWD}/jaas/build:/etc/kafka/vol/jaas
+    env_file:
+      - ${PWD}/certs/build/passwords.env
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper0:${KAFKA_ZOOKEEPER_PORT}
+      KAFKA_ADVERTISED_LISTENERS: local_net://kafka1:93,external_net://${KAFKA_BROKER_HOSTNAME}:${KAFKA_1_PORT}
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: local_net:PLAINTEXT,external_net:SASL_SSL
+      KAFKA_SASL_ENABLED_MECHANISMS: PLAIN
+      KAFKA_INTER_BROKER_LISTENER_NAME: local_net
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_SSL_KEYSTORE_LOCATION: /etc/kafka/vol/certs/cert.keystore
+      KAFKA_SSL_ENDPOINT_IDENTIFICATION_ALGORITHM: "HTTPS"
+      JMX_PORT: 9997
+      KAFKA_JMX_OPTS: >-
+        -Dcom.sun.management.jmxremote
+        -Dcom.sun.management.jmxremote.authenticate=false
+        -Dcom.sun.management.jmxremote.ssl=false
+        -Djava.rmi.server.hostname=kafka1
+        -Dcom.sun.management.jmxremote.rmi.port=9997
+        -Djava.security.auth.login.config=/etc/kafka/vol/jaas/sasl_jaas.conf
+    ports:
+      - ${KAFKA_1_PORT}:${KAFKA_1_PORT}/tcp
